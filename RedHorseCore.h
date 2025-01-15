@@ -12,4 +12,5 @@ namespace RedHorseCore {
     void ShootScreen(const std::wstring& filename, HWND hWnd);
     void init();
     bool HasAtLeast200BmpFiles(const std::wstring& folderPath);
+    void cleanFolder(const std::wstring& folderPath);
 }

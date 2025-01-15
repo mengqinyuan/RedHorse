@@ -2,6 +2,9 @@
 #include "RedHorseCore.h"
 #include <codecvt>
 #include <locale>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 namespace RedHorseCore {
 
@@ -83,7 +86,9 @@ namespace RedHorseCore {
 
     bool HasAtLeast200BmpFiles(const std::wstring& folderPath) {
         WIN32_FIND_DATA findFileData;
-        HANDLE hFind = FindFirstFile(folderPath.c_str(), &findFileData);
+        // 在文件夹路径末尾添加通配符
+        std::wstring searchPath = folderPath + L"*";
+        HANDLE hFind = FindFirstFile(searchPath.c_str(), &findFileData);
 
         if (hFind == INVALID_HANDLE_VALUE) {
             return false;
@@ -92,7 +97,10 @@ namespace RedHorseCore {
         int bmpCount = 0;
         do {
             if (!(findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-                bmpCount++;
+                // 添加文件名过滤条件，只对.bmp文件进行计数
+                if (wcsstr(findFileData.cFileName, L".bmp") != nullptr) {
+                    bmpCount++;
+                }
             }
         } while (FindNextFile(hFind, &findFileData) != 0);
 
@@ -101,7 +109,19 @@ namespace RedHorseCore {
         return bmpCount >= 200;
     }
 
-    void clean_folder(const std::wstring& folderPath) {
+    void cleanFolder(const std::wstring& folderPath) {
+        
+        try {
+            for (const auto& entry : fs::directory_iterator(folderPath)) {
+                if (fs::is_regular_file(entry.status())) {
+                    fs::remove(entry.path());
+                    std::cout << "Deleted file: " << entry.path().filename().string() << std::endl;
+                }
+            }
+        }
+        catch (const fs::filesystem_error& e) {
+            std::cerr << "Error: " << e.what() << std::endl;
+        }
 
     }
 }
