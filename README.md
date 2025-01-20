@@ -1,5 +1,5 @@
 # RedHorse
-中文文档请查看: README_zh.md
+涓枃鏂囨。: README_zh.md
 
 ## Project Overview
 RedHorse is a C++ application designed to capture screenshots and save them to a specified folder. It uses the Windows API to take screenshots and saves them as BMP files. When the number of images reaches or exceeds 200, they are uploaded to Alibaba Cloud OSS storage and the folder is cleared.
